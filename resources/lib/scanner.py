@@ -39,11 +39,27 @@ class ROMFileCandidate(ROMCandidateABC):
         
     def get_ROM(self) -> api.ROMObj:
         rom = api.ROMObj()
+
+        rom_name = self.file.getBaseNoExt()
+        normalized_path = self.file.getPath().replace('\\', '/').rstrip('/')
+        path_parts = [part for part in normalized_path.split('/') if part]
+
+        # RPCS3 disc-folder games all launch through PS3_GAME/USRDIR/EBOOT.BIN.
+        # Use the game folder immediately above PS3_GAME as the ROM identity/name
+        # so multiple PS3 titles do not all become "EBOOT". Keep the actual
+        # EBOOT.BIN path unchanged for launching.
+        if (len(path_parts) >= 4 and
+                path_parts[-1].lower() == 'eboot.bin' and
+                path_parts[-2].lower() == 'usrdir' and
+                path_parts[-3].lower() == 'ps3_game'):
+            rom_name = path_parts[-4]
+            logger.info('PS3 EBOOT folder structure detected. Using ROM name "{}"'.format(rom_name))
+
         scanned_data = {
             'file': self.file.getPath(),
-            'identifier': self.file.getBaseNoExt()
+            'identifier': rom_name
         }
-        rom.set_name(self.file.getBaseNoExt())
+        rom.set_name(rom_name)
         rom.set_scanned_data(scanned_data)
         return rom
         
@@ -215,6 +231,19 @@ class RomFolderScanner(RomScannerStrategy):
         allowedExtensions = self.get_rom_extensions()
         scanner_multidisc = self.supports_multidisc()
 
+        # RPCS3 disc-folder sources contain many unrelated .BIN files in each game.
+        # If this source contains at least one canonical PS3_GAME/USRDIR/EBOOT.BIN,
+        # treat it as a PS3 disc-folder source and only accept those EBOOT.BIN files
+        # as BIN ROM candidates. This keeps the generic scanner behavior unchanged
+        # for every source that does not contain the RPCS3 disc-folder structure.
+        ps3_disc_folder_source = any(
+            c.file.getPath().replace('\\', '/').rstrip('/').lower().endswith('/ps3_game/usrdir/eboot.bin')
+            for c in candidates
+            if isinstance(c, ROMFileCandidate)
+        )
+        if ps3_disc_folder_source:
+            logger.info('PS3 disc-folder source detected. Only PS3_GAME/USRDIR/EBOOT.BIN files will be accepted as BIN ROMs.')
+
         for candidate in sorted(candidates, key=lambda c: c.get_sort_value()):
             file_candidate: ROMFileCandidate = candidate
             ROM_file = file_candidate.file
@@ -242,6 +271,15 @@ class RomFolderScanner(RomScannerStrategy):
             if not processROM:
                 launcher_report.write('  File has not an expected extension. Skipping file.')
                 continue
+
+            # A recursive PS3 disc-folder source can contain many unrelated .BIN
+            # files. Once the source has been identified by the presence of a
+            # canonical EBOOT.BIN, reject every other BIN candidate.
+            if ps3_disc_folder_source and ROM_file.getExt().lower() == '.bin':
+                normalized_rom_path = ROM_file.getPath().replace('\\', '/').rstrip('/').lower()
+                if not normalized_rom_path.endswith('/ps3_game/usrdir/eboot.bin'):
+                    launcher_report.write('  PS3 disc-folder source: unrelated BIN file. Skipping file.')
+                    continue
                         
             # --- Check if ROM belongs to a multidisc set ---
             self.progress_dialog.updateMessage('{}\nChecking if ROM belongs to multidisc set..'.format(file_text))
