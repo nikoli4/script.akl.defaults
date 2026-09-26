@@ -23,7 +23,7 @@ import re
 import collections
 
 # --- AKL packages ---
-from akl import report, api
+from akl import report, api, platforms
 from akl.utils import io, kodi
 
 from akl.scanners import RomScannerStrategy, ROMCandidateABC, MultiDiscInfo
@@ -68,6 +68,22 @@ class ROMFileCandidate(ROMCandidateABC):
 
 
 class RomFolderScanner(RomScannerStrategy):
+
+    def __init__(self,
+                 reports_dir,
+                 source_id,
+                 webservice_host,
+                 webservice_port,
+                 progress_dialog,
+                 platform=None):
+        super(RomFolderScanner, self).__init__(
+            reports_dir,
+            source_id,
+            webservice_host,
+            webservice_port,
+            progress_dialog
+        )
+        self.platform = platform
     
     # --------------------------------------------------------------------------------------------
     # Core methods
@@ -99,12 +115,81 @@ class RomFolderScanner(RomScannerStrategy):
     def supports_multidisc(self) -> bool:
         return self.scanner_settings['multidisc']
 
+    def configuration_get_extensions_from_platform(self, input, item_key, scanner_settings):
+        if input:
+            return input
+
+        extensions = scanner_settings[item_key] if item_key in scanner_settings else ''
+        if extensions:
+            return extensions
+
+        if self.platform:
+            extensions = platforms.emudata_get_platform_extensions(self.platform)
+            if extensions:
+                logger.info(
+                    'Using platform ROM extensions for "{}": "{}"'.format(
+                        self.platform,
+                        extensions
+                    )
+                )
+                return extensions
+
+        return ''
+
+    def _get_setup_default_roms_root(self, input, item_key, scanner_settings):
+        if input:
+            return input
+
+        default_roms_root = kodi.get_windowprop(
+            'AKL.SetupWizard.DefaultROMsRoot'
+        )
+
+        if default_roms_root:
+            logger.info(
+                'Using Setup Wizard default ROMs root: "{}"'.format(
+                    default_roms_root
+                )
+            )
+
+        kodi.clear_windowprops([
+            'AKL.SetupWizard.DefaultROMsRoot'
+        ])
+
+        return default_roms_root
+
     def _configure_get_wizard(self, wizard) -> kodi.WizardDialog:
-        
-        wizard = kodi.WizardDialog_FileBrowse(wizard, 'rompath', 'Select the ROMs path', 0, '')
+
+        wizard = kodi.WizardDialog_Dummy(
+            wizard,
+            'rompath',
+            '',
+            self._get_setup_default_roms_root
+        )
+        wizard = kodi.WizardDialog_FileBrowse(
+            wizard,
+            'rompath',
+            'Select the ROMs path',
+            0,
+            ''
+        )
         wizard = kodi.WizardDialog_YesNo(wizard, 'scan_recursive', 'Scan recursive', 'Scan through this directory and any subdirectories?')
-        wizard = kodi.WizardDialog_Dummy(wizard, 'romext', '', self.configuration_get_extensions_from_launchers)
-        wizard = kodi.WizardDialog_Keyboard(wizard, 'romext', 'Set files extensions, use "|" as separator. (e.g lnk|cbr)')
+        wizard = kodi.WizardDialog_Dummy(
+            wizard,
+            'romext',
+            '',
+            self.configuration_get_extensions_from_launchers
+        )
+        wizard = kodi.WizardDialog_Dummy(
+            wizard,
+            'romext',
+            '',
+            self.configuration_get_extensions_from_platform
+        )
+        wizard = kodi.WizardDialog_Keyboard(
+            wizard,
+            'romext',
+            'Set files extensions, use "|" as separator. (e.g lnk|cbr)'
+        )
         wizard = kodi.WizardDialog_YesNo(wizard, 'multidisc',
                                          'Supports multi-disc ROMs?', 'Does this source contain multi-disc ROMS?')
         wizard = kodi.WizardDialog_YesNo(wizard, 'ignore_bios', 'Ignore BIOS', 'Ignore any BIOS file found during scanning?')
@@ -267,6 +352,17 @@ class RomFolderScanner(RomScannerStrategy):
                     launcher_report.write("  Expected '{0}' extension detected".format(ext))
                     processROM = True
                     break
+
+            # RPCS3 disc-folder games launch through the canonical
+            # PS3_GAME/USRDIR/EBOOT.BIN even though generic BIN files should
+            # not be included in the source's ROM extension list.
+            if ps3_disc_folder_source and ROM_file.getExt().lower() == '.bin':
+                normalized_rom_path = ROM_file.getPath().replace('\\', '/').rstrip('/').lower()
+                if normalized_rom_path.endswith('/ps3_game/usrdir/eboot.bin'):
+                    launcher_report.write(
+                        '  PS3 disc-folder EBOOT.BIN detected. Accepting as ROM.'
+                    )
+                    processROM = True
 
             if not processROM:
                 launcher_report.write('  File has not an expected extension. Skipping file.')

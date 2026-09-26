@@ -82,7 +82,30 @@ class AppLauncher(LauncherABC):
         return default_arguments
 
     def _builder_will_launch_through_app(self, item_key, properties) -> bool:
-        return properties[item_key] != 'FILE'
+        if properties[item_key] == 'FILE':
+            kodi.clear_windowprops([
+                'AKL.SetupWizard.DefaultEmulatorsRoot'
+            ])
+            return False
+
+        default_emulators_root = kodi.get_windowprop(
+            'AKL.SetupWizard.DefaultEmulatorsRoot'
+        )
+
+        if default_emulators_root:
+            logger.info(
+                'Using Setup Wizard default Emulators root: "{}"'.format(
+                    default_emulators_root
+                )
+            )
+
+            properties[item_key] = default_emulators_root
+
+        kodi.clear_windowprops([
+            'AKL.SetupWizard.DefaultEmulatorsRoot'
+        ])
+
+        return True
         
     def _builder_get_edit_options(self):
         options = super()._builder_get_edit_options()

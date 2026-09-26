@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="script.akl.defaults" name="Advanced Kodi Launcher: Default plugins" version="0.0.4" provider-name="chrisism">
+<addon id="script.akl.defaults" name="Advanced Kodi Launcher: Default plugins" version="1.4.0" provider-name="chrisism, nikoli4">
   <requires>
       <import addon="xbmc.python" version="3.0.0"/>
-      <import addon="script.module.akl" version="1.2.0"/>
+      <import addon="script.module.akl" version="1.3.0"/>
   </requires>
   <extension point="xbmc.python.script" library="default.py">
       <provides>game</provides>
@@ -14,8 +14,8 @@
     <license>GNU General Public License version 2</license>
     <email>crizizz@gmail.com</email>
     <forum>http://forum.kodi.tv/showthread.php?tid=287826</forum>
-    <website>https://github.com/chrisism/script.akl.defaults</website>
-    <source>https://github.com/chrisism/script.akl.defaults</source>
+    <website>https://github.com/nikoli4/script.akl.defaults</website>
+    <source>https://github.com/nikoli4/script.akl.defaults</source>
     <assets>
       <icon>media/icon.png</icon>
       <fanart>media/fanart.jpg</fanart>

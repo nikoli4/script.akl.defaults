@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 #
 # Default plugins for AKL
 # Launchers, scrapers and scanners
@@ -39,14 +39,14 @@ addon_version = addon.getAddonInfo('version')
 # ---------------------------------------------------------------------------------------------
 def run_plugin():
     os_name = io.is_which_os()
-    
+
     # --- Some debug stuff for development ---
     logger.info('------------ Called Advanced Kodi Launcher Plugin: Default plugins ------------')
     logger.info(f'addon.id         "{addon_id}"')
     logger.info(f'addon.version    "{addon_version}"')
     logger.info(f'sys.platform     "{sys.platform}"')
     logger.info(f'OS               "{os_name}"')
-    
+
     for i in range(len(sys.argv)):
         logger.info('sys.argv[{}] "{}"'.format(i, sys.argv[i]))
 
@@ -57,7 +57,7 @@ def run_plugin():
         logger.error('Exception in plugin', exc_info=ex)
         kodi.dialog_OK(text=addon_args.get_usage())
         return
-    
+
     if addon_args.get_command() == addons.AklAddonArguments.LAUNCH:
         launch_rom(addon_args)
     elif addon_args.get_command() == addons.AklAddonArguments.CONFIGURE_LAUNCHER:
@@ -70,7 +70,7 @@ def run_plugin():
         run_scraper(addon_args)
     else:
         kodi.dialog_OK(text=addon_args.get_help())
-    
+
     logger.debug('Advanced Kodi Launcher Plugin: Default plugins -> exit')
 
 
@@ -80,7 +80,7 @@ def run_plugin():
 # Arguments: --akl_addon_id --rom_id
 def launch_rom(args: addons.AklAddonArguments):
     logger.debug('App Launcher: Starting ...')
-    
+
     try:
         execution_settings = ExecutionSettings()
         execution_settings.delay_tempo = settings.getSettingAsInt('delay_tempo')
@@ -90,22 +90,23 @@ def launch_rom(args: addons.AklAddonArguments):
         execution_settings.suspend_audio_engine = settings.getSettingAsBool('suspend_audio_engine')
         execution_settings.suspend_screensaver = settings.getSettingAsBool('suspend_screensaver')
         execution_settings.suspend_joystick_engine = settings.getSettingAsBool('suspend_joystick')
-                
+
         addon_dir = kodi.getAddonDir()
         report_path = addon_dir.pjoin('reports')
         if not report_path.exists():
             report_path.makedirs()
         report_path = report_path.pjoin('{}-{}.txt'.format(args.get_akl_addon_id(), args.get_entity_id()))
-        
+
         executor_factory = get_executor_factory(report_path)
         launcher = AppLauncher(
             args.get_akl_addon_id(),
             args.get_entity_id(),
             args.get_webserver_host(),
             args.get_webserver_port(),
-            executor_factory,
-            execution_settings)
-        
+            executorFactory=executor_factory,
+            execution_settings=execution_settings,
+            entity_type=args.get_entity_type())
+
         launcher.launch()
     except Exception as e:
         logger.error('Exception while executing ROM', exc_info=e)
@@ -115,17 +116,22 @@ def launch_rom(args: addons.AklAddonArguments):
 # Arguments: --akl_addon_id --romcollection_id | --rom_id
 def configure_launcher(args: addons.AklAddonArguments):
     logger.debug('App Launcher: Configuring ...')
-        
+
     launcher = AppLauncher(
         args.get_akl_addon_id(),
         args.get_entity_id(),
         args.get_webserver_host(),
-        args.get_webserver_port())
-    
+        args.get_webserver_port(),
+        entity_type=args.get_entity_type())
+
+    system_name = args.get_system_name()
+    if system_name:
+        launcher.launcher_settings['name'] = system_name
+
     if launcher.build():
         launcher.store_settings()
         return
-    
+
     kodi.notify_warn('Cancelled creating launcher')
 
 
@@ -139,31 +145,31 @@ def scan_for_roms(args: addons.AklAddonArguments):
 
     addon_dir = kodi.getAddonDir()
     report_path = addon_dir.pjoin('reports')
-            
+
     scanner = RomFolderScanner(
         report_path,
         args.get_entity_id(),
         args.get_webserver_host(),
         args.get_webserver_port(),
         progress_dialog)
-        
+
     scanner.scan()
     progress_dialog.endProgress()
-    
+
     logger.debug('scan_for_roms(): Finished scanning')
-    
+
     amount_dead = scanner.amount_of_dead_roms()
     if amount_dead > 0:
         logger.info(f'scan_for_roms(): {amount_dead} roms marked as dead')
         scanner.remove_dead_roms()
-        
+
     amount_scanned = scanner.amount_of_scanned_roms()
     if amount_scanned == 0:
         logger.info('scan_for_roms(): No roms scanned')
     else:
         logger.info(f'scan_for_roms(): {amount_scanned} roms scanned')
         scanner.store_scanned_roms()
-        
+
     kodi.notify('ROMs scanning done')
 
 
@@ -172,18 +178,19 @@ def configure_scanner(args: addons.AklAddonArguments):
     logger.debug('ROM Folder scanner: Configuring ...')
     addon_dir = kodi.getAddonDir()
     report_path = addon_dir.pjoin('reports')
-    
+
     scanner = RomFolderScanner(
         report_path,
         args.get_entity_id(),
         args.get_webserver_host(),
         args.get_webserver_port(),
-        kodi.ProgressDialog())
-    
+        kodi.ProgressDialog(),
+        platform=args.get_platform())
+
     if scanner.configure():
         scanner.store_settings()
         return
-    
+
     kodi.notify_warn('Cancelled configuring scanner')
 
 
@@ -200,19 +207,19 @@ def run_scraper(args: addons.AklAddonArguments):
     settings.asset_selection_mode = constants.SCRAPE_AUTOMATIC
     settings.overwrite_existing_assets = constants.SCRAPE_AUTOMATIC
     settings.overwrite_existing_meta = constants.SCRAPE_AUTOMATIC
-    
+
     if settings.scrape_metadata_policy != constants.SCRAPE_ACTION_NONE:
         settings.scrape_metadata_policy = constants.SCRAPE_POLICY_LOCAL_ONLY
     if settings.scrape_assets_policy != constants.SCRAPE_ACTION_NONE:
         settings.scrape_assets_policy = constants.SCRAPE_POLICY_LOCAL_ONLY
-    
+
     scraper_strategy = ScrapeStrategy(
         args.get_webserver_host(),
         args.get_webserver_port(),
         settings,
         LocalFilesScraper(),
         pdialog)
-                        
+
     if args.get_entity_type() == constants.OBJ_ROM:
         scraped_rom = scraper_strategy.process_single_rom(args.get_entity_id())
         pdialog.endProgress()
@@ -228,8 +235,8 @@ def run_scraper(args: addons.AklAddonArguments):
                                             args.get_entity_id(),
                                             scraped_roms)
         pdialog.endProgress()
-        
-        
+
+
 # ---------------------------------------------------------------------------------------------
 # RUN
 # ---------------------------------------------------------------------------------------------
