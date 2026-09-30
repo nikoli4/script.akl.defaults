@@ -1,3 +1,9 @@
+## 1.4.2
+
+- Updated the AKL module dependency to version 1.3.1 to match the scanner API used by the Setup Wizard.
+- Updated the development dependency to script.module.akl 1.3.1.
+- Maintenance release; no functional changes.
+
 ## 1.4.1
 
 - Improved the Setup Wizard ROM scanner retry flow when no ROMs are found.
