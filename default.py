@@ -153,24 +153,109 @@ def scan_for_roms(args: addons.AklAddonArguments):
         args.get_webserver_port(),
         progress_dialog)
 
-    scanner.scan()
-    progress_dialog.endProgress()
+    source_id = args.get_entity_id()
+    setup_wizard_source_id = kodi.get_windowprop(
+        'AKL.SetupWizard.ScannerSourceID'
+    )
+    is_setup_wizard = setup_wizard_source_id == source_id
 
-    logger.debug('scan_for_roms(): Finished scanning')
+    while True:
+        # Clear results from a previous attempt before rescanning.
+        scanner.scanned_roms = []
+        scanner.marked_dead_roms = []
 
-    amount_dead = scanner.amount_of_dead_roms()
-    if amount_dead > 0:
-        logger.info(f'scan_for_roms(): {amount_dead} roms marked as dead')
-        scanner.remove_dead_roms()
+        scanner.scan(suppress_empty_warning=is_setup_wizard)
+        progress_dialog.endProgress()
 
-    amount_scanned = scanner.amount_of_scanned_roms()
-    if amount_scanned == 0:
+        logger.debug('scan_for_roms(): Finished scanning')
+
+        amount_dead = scanner.amount_of_dead_roms()
+        if amount_dead > 0:
+            logger.info(f'scan_for_roms(): {amount_dead} roms marked as dead')
+            scanner.remove_dead_roms()
+
+        amount_scanned = scanner.amount_of_scanned_roms()
+
+        if amount_scanned > 0:
+            logger.info(f'scan_for_roms(): {amount_scanned} roms scanned')
+            break
+
         logger.info('scan_for_roms(): No roms scanned')
-    else:
-        logger.info(f'scan_for_roms(): {amount_scanned} roms scanned')
-        scanner.store_scanned_roms()
 
-    kodi.notify('ROMs scanning done')
+        if not is_setup_wizard:
+            break
+
+        retry = kodi.dialog_yesno(
+            'No ROMs were found. Would you like to review the ROM path '
+            'and file extensions and try again?'
+        )
+
+        if not retry:
+            logger.info(
+                'SETUP_WIZARD: User chose to continue setup with no ROMs.'
+            )
+            break
+
+        logger.info(
+            'SETUP_WIZARD: Reopening scanner wizard after zero-ROM scan.'
+        )
+
+        retry_rompath = scanner.scanner_settings.get('rompath', '')
+
+        if retry_rompath:
+            kodi.set_windowprop(
+                'AKL.SetupWizard.DefaultROMsRoot',
+                retry_rompath
+            )
+
+            logger.info(
+                f'SETUP_WIZARD: Preserving ROM path for scanner retry: '
+                f'"{retry_rompath}".'
+            )
+
+        wizard = kodi.WizardDialog_Dummy(
+            None,
+            'addon_id',
+            scanner.get_scanner_addon_id()
+        )
+
+        wizard = scanner._configure_get_wizard(wizard)
+
+        updated_settings = wizard.runWizard(
+            scanner.scanner_settings
+        )
+
+        if not updated_settings:
+            logger.info(
+                'SETUP_WIZARD: Scanner retry wizard cancelled. '
+                'Continuing setup with no ROMs.'
+            )
+            break
+
+        scanner.scanner_settings = updated_settings
+
+        if not scanner._configure_post_wizard_hook():
+            logger.warning(
+                'SETUP_WIZARD: Scanner retry wizard post-configuration '
+                'hook failed.'
+            )
+            break
+
+        scanner.store_settings()
+
+        logger.info(
+            'SETUP_WIZARD: Scanner settings updated. '
+            'Returning control to AKL for the retry scan.'
+        )
+
+        return
+
+    # Always report the result back to AKL. An empty result is important
+    # during Setup Wizard because it allows wizard continuation.
+    scanner.store_scanned_roms()
+
+    if scanner.amount_of_scanned_roms() > 0:
+        kodi.notify('ROMs scanning done')
 
 
 # Arguments: --source_id
