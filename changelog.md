@@ -1,3 +1,7 @@
+## 1.4.3
+
+- Updated icon and fanart to the AKL Revival artwork.
+
 ## 1.4.2
 
 - Updated the AKL module dependency to version 1.3.1 to match the scanner API used by the Setup Wizard.
