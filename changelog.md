@@ -1,3 +1,8 @@
+## 1.4.6
+
+- Handled the update-settings command without displaying the add-on help dialog.
+- Preserved the existing statically declared scraper capabilities.
+
 ## 1.4.5
 
 - Fixed an error when changing the application executable for an existing launcher.

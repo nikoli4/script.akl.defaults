@@ -68,6 +68,9 @@ def run_plugin():
         configure_scanner(addon_args)
     elif addon_args.get_command() == addons.AklAddonArguments.SCRAPE:
         run_scraper(addon_args)
+    elif addon_args.args.cmd == "update-settings":
+        # Capabilities are statically declared in resources/settings.xml.
+        logger.info("Default addon settings are already defined.")
     else:
         kodi.dialog_OK(text=addon_args.get_help())
 
