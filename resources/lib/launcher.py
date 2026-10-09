@@ -124,8 +124,15 @@ class AppLauncher(LauncherABC):
         selected_option = kodi.OrdDictionaryDialog().select('Select the way to launch the files', options, preselected)
         
         if selected_option == 'APP':
-            selected_application = kodi.browse(1, 'Select the launcher application', 'files',
-                                               '', False, False, current_application)
+            selected_application = kodi.browse(
+                type=1,
+                text='Select the launcher application',
+                shares='files',
+                mask='',
+                preselected_path=current_application,
+                useThumbs=False,
+                multiple=False
+            )
             if selected_application is None or selected_application == current_application:
                 return
         else:

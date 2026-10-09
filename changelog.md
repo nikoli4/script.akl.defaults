@@ -1,3 +1,8 @@
+## 1.4.5
+
+- Fixed an error when changing the application executable for an existing launcher.
+- Corrected file browser argument handling when selecting a launcher application.
+
 ## 1.4.4
 
 - Renamed the updated icon and fanart assets so Kodi refreshes cached add-on artwork.
