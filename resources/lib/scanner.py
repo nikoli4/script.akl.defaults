@@ -137,6 +137,7 @@ class RomFolderScanner(RomScannerStrategy):
         return ''
 
     def _get_setup_default_roms_root(self, input, item_key, scanner_settings):
+
         if input:
             return input
 
@@ -348,7 +349,7 @@ class RomFolderScanner(RomScannerStrategy):
             processROM = False
 
             for ext in allowedExtensions:
-                if ROM_file.getExt() == '.' + ext:
+                if ROM_file.getExt().lower() == ('.' + ext).lower():
                     launcher_report.write("  Expected '{0}' extension detected".format(ext))
                     processROM = True
                     break
@@ -371,11 +372,21 @@ class RomFolderScanner(RomScannerStrategy):
             # A recursive PS3 disc-folder source can contain many unrelated .BIN
             # files. Once the source has been identified by the presence of a
             # canonical EBOOT.BIN, reject every other BIN candidate.
-            if ps3_disc_folder_source and ROM_file.getExt().lower() == '.bin':
-                normalized_rom_path = ROM_file.getPath().replace('\\', '/').rstrip('/').lower()
-                if not normalized_rom_path.endswith('/ps3_game/usrdir/eboot.bin'):
-                    launcher_report.write('  PS3 disc-folder source: unrelated BIN file. Skipping file.')
-                    continue
+            is_ps3_platform = False
+
+            if self.platform:
+                platform_info = platforms.get_AKL_platform(self.platform)
+                is_ps3_platform = (
+                    platform_info is not None
+                    and platform_info.compact_name == 'ps3'
+                )
+
+            if ps3_disc_folder_source or is_ps3_platform:
+                if ROM_file.getExt().lower() == '.bin':
+                    normalized_rom_path = ROM_file.getPath().replace('\\', '/').rstrip('/').lower()
+                    if not normalized_rom_path.endswith('/ps3_game/usrdir/eboot.bin'):
+                        launcher_report.write('  PS3 source: unrelated BIN file. Skipping file.')
+                        continue
                         
             # --- Check if ROM belongs to a multidisc set ---
             self.progress_dialog.updateMessage('{}\nChecking if ROM belongs to multidisc set..'.format(file_text))

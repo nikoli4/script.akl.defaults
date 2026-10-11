@@ -1,3 +1,12 @@
+## 1.4.7
+
+- Improved scanning of extracted PlayStation 3 disc-folder games.
+- Restricted PS3 BIN imports to valid PS3_GAME/USRDIR/EBOOT.BIN paths.
+- Prevented unrelated BIN files from being imported as PS3 games.
+- Improved platform-aware PS3 scanning.
+- Made ROM extension matching case-insensitive.
+- Passed the selected platform to the ROM scanner for more accurate game detection.
+
 ## 1.4.6
 
 - Handled the update-settings command without displaying the add-on help dialog.

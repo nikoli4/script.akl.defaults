@@ -154,7 +154,8 @@ def scan_for_roms(args: addons.AklAddonArguments):
         args.get_entity_id(),
         args.get_webserver_host(),
         args.get_webserver_port(),
-        progress_dialog)
+        progress_dialog,
+        platform=args.get_platform())
 
     source_id = args.get_entity_id()
     setup_wizard_source_id = kodi.get_windowprop(
